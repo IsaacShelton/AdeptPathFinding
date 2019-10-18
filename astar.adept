@@ -4,8 +4,6 @@ import '2.2/List.adept'
 import '2.2/Ownership.adept'
 import 'sys/cmath.adept'
 
-import '2.2/basics.adept'
-
 struct AstarGrid (squares *AstarSquare, width, height usize) {
     func create(width, height usize) {
         this.squares = new AstarSquare * (width * height)
@@ -15,17 +13,6 @@ struct AstarGrid (squares *AstarSquare, width, height usize) {
     
     func destroy {
         delete this.squares
-    }
-    
-    func print {
-        repeat this.height {
-            yidx usize = idx
-            repeat this.width {
-                printf(this.squares[yidx * this.width + idx].solid ? 'S' : '_')
-            }
-            printf('\n')
-        }
-        printf('\n')
     }
     
     func findPath(start_x, start_y, end_x, end_y int) <AstarPosition> List {
