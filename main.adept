@@ -1,0 +1,89 @@
+
+pragma compiler_version '2.2'
+import 'captain_prototype/captain.adept'
+import 'astar.adept'
+
+struct Tile (solid bool)
+
+wall_texture CaptTexture
+path_texture CaptTexture
+grid *Tile
+GRID_WIDTH == 16
+GRID_HEIGHT == 12
+START_X == 0
+START_Y == 0
+END_X == GRID_WIDTH - 1
+END_Y == GRID_HEIGHT - 1
+
+func main {
+    unless captPrepare(), return
+    captOnSetup(func &on_setup)
+    captOnClick(func &on_click, true)
+    captOnDraw(func &on_draw)
+    captOnExit(func &on_exit)
+    captStart('AdeptPathFinding', 640, 480, false)
+}
+
+func on_setup {
+    wall_texture = captTexture('wall.png', false)
+    path_texture = captTexture('path.png', false)
+    grid = new Tile * (GRID_WIDTH * GRID_HEIGHT)
+}
+
+func on_click(x, y float, button int) {
+    tx usize = x as usize / 64
+    ty usize = y as usize / 64
+    
+    if tx < GRID_WIDTH && ty < GRID_HEIGHT,
+        grid[ty * GRID_WIDTH + tx].solid = button == GLFW_MOUSE_BUTTON_2
+}
+
+func on_draw {
+    captClearColor(captColor(0.8f, 0.8f, 0.8f))
+    
+    astarGrid AstarGrid = createAstarGrid()
+    path <AstarPosition> List = astarGrid.findPath(START_X, START_Y, END_X, END_Y)
+    astarGrid.destroy()
+    
+    repeat GRID_HEIGHT {
+        y float = idx as float * 64.0f
+        yidx usize = idx
+        
+        repeat GRID_WIDTH {
+            x float = idx as float * 64.0f
+            tile *Tile = grid at (yidx * GRID_WIDTH + idx)
+            
+            if tile.solid,
+                captDrawTexture(wall_texture, x, y, 64.0f, 64.0f)
+        }
+    }
+    
+    each AstarPosition in path {
+        captDrawTexture(path_texture, it.x as float * 64.0f + 16.0f, it.y as float * 64.0f + 16.0f, 32.0f, 32.0f)
+    }
+    
+    captDrawTexture(wall_texture, START_X * 64.0f + 16.0f, START_Y * 64.0f + 16.0f, 32.0f, 32.0f)
+    captDrawTexture(wall_texture, END_X * 64.0f + 16.0f, END_Y * 64.0f + 16.0f, 32.0f, 32.0f)
+}
+
+func on_exit {
+    wall_texture.free()
+    path_texture.free()
+    delete grid
+}
+
+func createAstarGrid AstarGrid {
+    astarGrid AstarGrid = undef
+    astarGrid.create(GRID_WIDTH, GRID_HEIGHT)
+    
+    repeat GRID_HEIGHT {
+        yidx usize = idx
+        repeat GRID_WIDTH {
+            square *AstarSquare = astarGrid.squares at (yidx * GRID_WIDTH + idx)
+            tile *Tile = grid at (yidx * GRID_WIDTH + idx)
+            square.solid = tile.solid
+        }
+    }
+    
+    return astarGrid
+}

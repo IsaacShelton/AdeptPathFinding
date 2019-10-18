@@ -1,0 +1,126 @@
+
+pragma compiler_supports '2.2'
+import '2.2/List.adept'
+import '2.2/Ownership.adept'
+import 'sys/cmath.adept'
+
+import '2.2/basics.adept'
+
+struct AstarGrid (squares *AstarSquare, width, height usize) {
+    func create(width, height usize) {
+        this.squares = new AstarSquare * (width * height)
+        this.width = width
+        this.height = height
+    }
+    
+    func destroy {
+        delete this.squares
+    }
+    
+    func print {
+        repeat this.height {
+            yidx usize = idx
+            repeat this.width {
+                printf(this.squares[yidx * this.width + idx].solid ? 'S' : '_')
+            }
+            printf('\n')
+        }
+        printf('\n')
+    }
+    
+    func findPath(start_x, start_y, end_x, end_y int) <AstarPosition> List {
+        open, closed <AstarNode> List
+        path <AstarPosition> List
+        open.addNode(start_x, start_y, 0.0f, 0.0f, -1, -1)
+        
+        while open.length != 0 {
+            currentNodeIndex long = open.lowestFCostNodeIndex()
+            if currentNodeIndex < 0, return path.commit()
+                        
+            currentNodeContents AstarNode = open.items[currentNodeIndex]
+            open.remove(currentNodeIndex as usize)
+            closed.add(currentNodeContents)
+            
+            if currentNodeContents.x == end_x && currentNodeContents.y == end_y {
+                // Success, backtrack to find path
+                until currentNodeContents.parent_x == -1 && currentNodeContents.parent_y == -1 {
+                    path.addPosition(currentNodeContents.x, currentNodeContents.y)
+                    
+                    each AstarNode in closed, if it.x == currentNodeContents.parent_x && it.y == currentNodeContents.parent_y,
+                        currentNodeContents = it; break
+                }
+                path.reverse()
+                return path.commit()
+            }
+            
+            child_positions <AstarPosition> List = this.getChildPositions(currentNodeContents)
+            
+            each positions : position AstarPosition in child_positions {
+                each AstarNode in closed, if it.x == position.x && it.y == position.y,
+                    continue positions
+                
+                if this.squares[position.y * this.width + position.x].solid,
+                    continue positions
+                
+                g double = currentNodeContents.g + 1.0
+                h double = manhattenDistance(position.x, position.y, end_x, end_y) as double
+                
+                each AstarNode in open, if position.x == it.x && position.y == it.y && g >= it.g,
+                    continue positions
+                
+                open.addNode(position.x, position.y, g, h, currentNodeContents.x, currentNodeContents.y)
+            }
+        }
+        
+        // Failure, return empty list
+        return path.commit()
+    }
+    
+    func getChildPositions(node AstarNode) <AstarPosition> List {
+        positions <AstarPosition> List
+        if node.x > 0, positions.addPosition(node.x - 1, node.y)
+        if node.y > 0, positions.addPosition(node.x, node.y - 1)
+        if node.x + 1 < this.width, positions.addPosition(node.x + 1, node.y)
+        if node.y + 1 < this.height, positions.addPosition(node.x, node.y + 1)
+        return positions.commit()
+    }
+}
+
+struct AstarSquare (solid bool)
+struct AstarNode (x, y int, g, h double, parent_x, parent_y int)
+
+func addNode(this *<AstarNode> List, x, y int, g, h double, parent_x, parent_y int) {
+    node POD AstarNode
+    node.x = x
+    node.y = y
+    node.g = g
+    node.h = h
+    node.parent_x = parent_x // -1 == none
+    node.parent_y = parent_y // -1 == none
+    this.add(node)
+}
+
+func lowestFCostNodeIndex(this *<AstarNode> List) long {
+    target long = -1
+    lowest_fcost double = 1000000000.0f
+    each AstarNode in *this {
+        if it.g + it.h < lowest_fcost {
+            lowest_fcost = it.g + it.h
+            target = idx as long
+        }
+    }
+    return target
+}
+
+struct AstarPosition (x, y int)
+
+func addPosition(this *<AstarPosition> List, x, y int){
+    position POD AstarPosition
+    position.x = x
+    position.y = y
+    this.add(position)
+}
+
+func manhattenDistance(x1, y1, x2, y2 int) int {
+    return abs(x1 - x2) + abs(y1 - y2)
+}
